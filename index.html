@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="POV Studio : un skill pour Claude qui produit des vidéos POV verticales en 3D, avec voix et son. Tu décris, il fait.">
+<meta property="og:title" content="POV Studio"><meta property="og:description" content="Décris une idée, récupère une vidéo POV prête à poster."><meta property="og:image" content="assets/poster.jpg">
+<link rel="icon" href="assets/pp.png">
+<style>body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>POV Studio</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Concept : la page est cadrée comme l'écran des vidéos. Un viseur jaune tient la démo, le reste est calme. */
+:root {
+  color-scheme: dark;
+  --bg: #0b0d18; --panel: #121630; --ink: #1c2344; --line: rgba(255,255,255,.11);
+  --fg: #f4f6ff; --muted: #a2abc8; --accent: #ffd23f; --accent-ink: #171305; --rec: #ff3b3b;
+  --display: "Barlow Condensed", "Avenir Next Condensed", "Arial Narrow", sans-serif;
+  --text: Inter, "Helvetica Neue", Arial, sans-serif;
+  --wrap: 1080px;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { background: var(--bg); color: var(--fg); font: 400 17px/1.6 var(--text); -webkit-font-smoothing: antialiased; }
+a { color: inherit; }
+.wrap { max-width: var(--wrap); margin-inline: auto; padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3 { font-family: var(--display); font-weight: 800; line-height: 1.02; margin: 0; text-wrap: balance; letter-spacing: .005em; }
+h1 { font-size: clamp(46px, 8.2vw, 88px); text-transform: uppercase; }
+h2 { font-size: clamp(34px, 5vw, 52px); text-transform: uppercase; }
+h3 { font-size: 26px; line-height: 1.1; }
+p { margin: 0; }
+em { font-style: normal; color: var(--accent); }
+.eyebrow { font: 600 13px/1.3 var(--text); letter-spacing: .2em; text-transform: uppercase; color: var(--accent); }
+.lead { font-size: clamp(18px, 2.1vw, 21px); color: var(--muted); max-width: 34em; }
+.muted { color: var(--muted); }
+section { padding-block: clamp(56px, 9vw, 104px); }
+.head { display: flex; flex-direction: column; gap: 14px; margin-bottom: clamp(28px, 4vw, 44px); max-width: 44em; }
+
+/* Barre du haut, façon HUD */
+.top { display: flex; align-items: center; gap: 20px; padding-block: 18px; }
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; font: 800 24px/1 var(--display); letter-spacing: .04em; }
+.brand svg { width: 34px; height: 34px; flex: none; }
+.brand small { font: 700 13px/1 var(--display); letter-spacing: .32em; color: var(--accent); }
+.top nav { margin-left: auto; display: flex; gap: 22px; font: 500 15px var(--text); }
+.top nav a { text-decoration: none; color: var(--muted); }
+.top nav a:hover, .top nav a:focus-visible { color: var(--fg); }
+@media (max-width: 640px) { .top nav a:not(.go) { display: none; } }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; text-decoration: none; cursor: pointer; border: 0;
+  font: 800 21px/1 var(--display); letter-spacing: .06em; text-transform: uppercase; padding: 17px 26px; border-radius: 12px; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); }
+.btn.primary:hover { filter: brightness(1.07); }
+.btn.ghost { background: transparent; color: var(--fg); box-shadow: inset 0 0 0 2px var(--line); }
+.btn.ghost:hover { box-shadow: inset 0 0 0 2px var(--fg); }
+.btn.small { font-size: 16px; padding: 10px 16px; border-radius: 9px; }
+.btn:focus-visible, a:focus-visible, summary:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+
+/* Héros */
+.hero { padding-block: clamp(20px, 4vw, 48px) clamp(56px, 8vw, 96px); }
+.hero .grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr); gap: clamp(28px, 5vw, 64px); align-items: center; }
+.hero .copy { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+.cta { display: flex; flex-wrap: wrap; gap: 12px; }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px 24px; padding: 0; margin: 6px 0 0; list-style: none; font: 500 14px/1.4 var(--text); color: var(--muted); }
+.facts li { min-width: 0; }
+.facts b { display: block; font: 800 26px/1 var(--display); color: var(--fg); letter-spacing: .02em; }
+@media (max-width: 820px) { .hero .grid { grid-template-columns: 1fr; } }
+
+/* Le viseur qui tient le téléphone */
+.finder { position: relative; justify-self: center; width: min(100%, 360px); padding: 30px; }
+.finder::before, .finder::after, .finder i::before, .finder i::after { content: ""; position: absolute; width: 46px; height: 46px; border: 6px solid var(--accent); }
+.finder::before { left: 0; top: 0; border-right: 0; border-bottom: 0; }
+.finder::after { right: 0; top: 0; border-left: 0; border-bottom: 0; }
+.finder i::before { left: 0; bottom: 0; border-right: 0; border-top: 0; }
+.finder i::after { right: 0; bottom: 0; border-left: 0; border-top: 0; }
+.phone { position: relative; aspect-ratio: 9 / 16; max-width: 100%; border-radius: 30px; overflow: hidden; background: #000; box-shadow: 0 0 0 8px #05060c, 0 0 0 9px var(--line), 0 30px 80px rgba(0,0,0,.6), 0 0 90px rgba(255,59,48,.14); }
+.phone video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.rec { position: absolute; right: 44px; top: 6px; display: flex; align-items: center; gap: 7px; font: 700 13px/1 var(--display); letter-spacing: .22em; color: var(--fg); }
+.rec::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--rec); animation: blink 1.6s steps(2, jump-none) infinite; }
+@keyframes blink { 50% { opacity: .25; } }
+.sound { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); background: rgba(8,9,16,.82); color: var(--fg); border: 1px solid var(--line); border-radius: 999px; padding: 9px 16px; font: 600 13px/1 var(--text); cursor: pointer; white-space: nowrap; }
+.cap { text-align: center; font-size: 13px; color: var(--muted); margin-top: 16px; }
+@media (prefers-reduced-motion: reduce) { .rec::before { animation: none; } html { scroll-behavior: auto; } }
+
+/* Conversation */
+.band { background: linear-gradient(180deg, var(--panel), var(--bg)); border-block: 1px solid var(--line); }
+.talk { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(24px, 4vw, 48px); align-items: start; }
+@media (max-width: 820px) { .talk { grid-template-columns: 1fr; } }
+.chat { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.msg { border-radius: 16px; padding: 14px 18px; max-width: 34em; font-size: 16px; }
+.msg.you { align-self: flex-end; background: var(--accent); color: var(--accent-ink); font-weight: 500; border-bottom-right-radius: 4px; }
+.msg.ai { background: var(--ink); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
+.msg.ai ol { margin: 8px 0 0; padding-left: 1.2em; display: grid; gap: 4px; color: var(--muted); }
+.msg.ai ol b { color: var(--fg); font-weight: 600; }
+.who { font: 700 12px/1 var(--display); letter-spacing: .24em; text-transform: uppercase; color: var(--muted); }
+.who.r { text-align: right; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 0; margin: 14px 0 0; list-style: none; }
+.chips li { border: 1px solid var(--line); border-radius: 999px; padding: 7px 14px; font-size: 14.5px; color: var(--fg); background: rgba(255,255,255,.03); }
+
+/* Étapes */
+.steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; padding: 0; margin: 0; list-style: none; counter-reset: s; }
+@media (max-width: 820px) { .steps { grid-template-columns: 1fr; } }
+.steps li { counter-increment: s; display: flex; flex-direction: column; gap: 10px; padding-top: 18px; border-top: 3px solid var(--accent); min-width: 0; }
+.steps li::before { content: "0" counter(s); font: 800 44px/1 var(--display); color: var(--accent); }
+.steps code, .req code { font: 500 14px ui-monospace, Menlo, monospace; background: var(--ink); padding: 2px 7px; border-radius: 6px; }
+
+/* Planche d'images */
+.shots { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 820px) { .shots { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.shots figure { margin: 0; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.shots img { width: 100%; aspect-ratio: 9 / 16; object-fit: cover; border-radius: 14px; border: 1px solid var(--line); display: block; }
+.shots figcaption { font-size: 14.5px; color: var(--muted); }
+.shots figcaption b { display: block; color: var(--fg); font: 700 19px/1.15 var(--display); letter-spacing: .02em; }
+
+/* Ce que tu reçois */
+.kit { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 clamp(24px, 4vw, 56px); padding: 0; margin: 0; list-style: none; }
+@media (max-width: 720px) { .kit { grid-template-columns: 1fr; } }
+.kit li { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 16px; align-items: baseline; padding-block: 18px; border-top: 1px solid var(--line); }
+.kit .n { font: 800 34px/1 var(--display); color: var(--accent); font-variant-numeric: tabular-nums; }
+.kit .n small { display: block; font: 600 11px/1.3 var(--text); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin-top: 4px; }
+.kit p { color: var(--muted); font-size: 15.5px; }
+.kit p b { color: var(--fg); font-weight: 600; }
+
+/* Comparaison */
+.vs { overflow-x: auto; }
+.vs table { width: 100%; min-width: 560px; border-collapse: collapse; font-size: 15.5px; }
+.vs th, .vs td { text-align: left; padding: 14px 16px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.vs thead th { font: 700 17px/1.2 var(--display); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.vs thead th:last-child { color: var(--accent); }
+.vs tbody th { font-weight: 600; width: 26%; }
+.vs td { color: var(--muted); }
+.vs td:last-child { color: var(--fg); }
+
+/* Prérequis + prix */
+.buy { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 400px); gap: clamp(28px, 5vw, 64px); align-items: start; }
+@media (max-width: 820px) { .buy { grid-template-columns: 1fr; } }
+.req { display: grid; gap: 14px; padding: 0; margin: 0; list-style: none; }
+.req li { padding-left: 26px; position: relative; color: var(--muted); }
+.req li::before { content: ""; position: absolute; left: 0; top: .62em; width: 12px; height: 12px; border-left: 3px solid var(--accent); border-top: 3px solid var(--accent); }
+.req b { color: var(--fg); font-weight: 600; }
+.price { background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 28px; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 0 0 1px rgba(255,210,63,.18), 0 24px 70px rgba(0,0,0,.45); }
+.price .amount { font: 800 96px/.9 var(--display); letter-spacing: -.01em; }
+.price .amount span { font-size: 40px; color: var(--muted); margin-left: 6px; }
+.price ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; font-size: 15.5px; }
+.price li { padding-left: 24px; position: relative; }
+.price li::before { content: ""; position: absolute; left: 2px; top: .5em; width: 12px; height: 7px; border-left: 3px solid var(--accent); border-bottom: 3px solid var(--accent); transform: rotate(-45deg); }
+.price .btn { width: 100%; }
+.price .btn[aria-disabled="true"] { background: var(--ink); color: var(--muted); cursor: default; box-shadow: inset 0 0 0 2px var(--line); }
+.fine { font-size: 13.5px; color: var(--muted); }
+
+/* FAQ */
+.faq { display: grid; gap: 0; max-width: 46em; }
+.faq details { border-top: 1px solid var(--line); padding-block: 4px; }
+.faq details:last-child { border-bottom: 1px solid var(--line); }
+.faq summary { cursor: pointer; list-style: none; padding-block: 16px; font: 700 22px/1.2 var(--display); letter-spacing: .01em; display: flex; justify-content: space-between; gap: 16px; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after { content: "+"; color: var(--accent); font-size: 26px; line-height: .9; }
+.faq details[open] summary::after { content: "–"; }
+.faq p { color: var(--muted); padding-bottom: 18px; max-width: 40em; }
+
+footer { border-top: 1px solid var(--line); padding-block: 28px 40px; color: var(--muted); font-size: 14px; }
+footer .wrap { display: flex; flex-wrap: wrap; gap: 10px 24px; justify-content: space-between; }
+</style>
+
+</head>
+<body>
+<header class="wrap top">
+  <a class="brand" href="#haut" aria-label="POV Studio, haut de page">
+    <svg viewBox="0 0 100 100" aria-hidden="true"><g fill="none" stroke="#ffd23f" stroke-width="9" stroke-linecap="square"><path d="M10 34V10h24"/><path d="M66 10h24v24"/><path d="M90 66v24H66"/><path d="M34 90H10V66"/></g><circle cx="50" cy="50" r="13" fill="#fff"/><circle cx="76" cy="24" r="6" fill="#ff3b3b"/></svg>
+    <span>POV <small>STUDIO</small></span>
+  </a>
+  <nav aria-label="Sections">
+    <a href="#marche">Comment ça marche</a>
+    <a href="#contenu">Ce que tu reçois</a>
+    <a href="#questions">Questions</a>
+    <a class="btn primary small go" href="#prix">Obtenir · 6,99 €</a>
+  </nav>
+</header>
+
+<main id="haut">
+  <section class="hero">
+    <div class="wrap grid">
+      <div class="copy">
+        <p class="eyebrow">Un skill pour Claude</p>
+        <h1>Ton studio de vidéos POV tient dans <em>un fichier</em>.</h1>
+        <p class="lead">Importe le fichier dans Claude et décris une idée. Il écrit l'histoire, construit la scène en 3D, la filme, pose les voix et le son. Tu récupères une vidéo verticale prête à poster.</p>
+        <div class="cta">
+          <a class="btn primary" href="#prix">Obtenir POV Studio · 6,99 €</a>
+          <a class="btn ghost" href="#marche">Voir comment ça marche</a>
+        </div>
+        <ul class="facts">
+          <li><b>2 à 3 min</b>de rendu par minute de vidéo, sur un Mac récent</li>
+          <li><b>1080 × 1920</b>format Reels, TikTok, Shorts</li>
+          <li><b>0 €</b>par rendu, autant de versions que tu veux</li>
+        </ul>
+      </div>
+      <div>
+        <div class="finder"><i></i>
+          <span class="rec">REC</span>
+          <div class="phone">
+            <video id="demo" src="assets/demo.mp4" poster="assets/poster.jpg" autoplay muted loop playsinline preload="metadata" aria-label="Extrait : L'étage 13, vidéo de 65 secondes faite avec POV Studio"></video>
+            <button class="sound" id="son" type="button" aria-pressed="false">Activer le son</button>
+          </div>
+        </div>
+        <p class="cap">« L'étage 13 », 65 secondes. Faite avec POV Studio, sans retouche.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" id="parle">
+    <div class="wrap">
+      <div class="head">
+        <p class="eyebrow">Tu parles, il produit</p>
+        <h2>Pas de logiciel à apprendre. Une <em>conversation</em>.</h2>
+        <p class="lead">POV Studio contient la méthode que Claude lit tout seul. Tu n'écris ni code ni commande.</p>
+      </div>
+      <div class="talk">
+        <div class="chat" aria-label="Exemple de demande">
+          <p class="who r">Toi</p>
+          <p class="msg you">Fais-moi une vidéo POV d'horreur, 60 secondes, dans un ascenseur la nuit. Fin avec un choix pour le public.</p>
+          <p class="who">Claude</p>
+          <div class="msg ai">Voici la fiche de l'histoire. Si elle te va, je lance :
+            <ol>
+              <li><b>Script</b> et minutage des répliques</li>
+              <li><b>Scène 3D</b> : décor, personnages, caméra à la première personne</li>
+              <li><b>Planche d'images</b> à valider avant le rendu</li>
+              <li><b>Voix</b>, bruitages et mixage</li>
+              <li><b>Vidéo finale</b> et légende prête à coller</li>
+            </ol>
+          </div>
+        </div>
+        <div>
+          <h3>Ensuite, tu ajustes en parlant</h3>
+          <p class="muted" style="margin-top:10px">Chaque version se refait en quelques minutes, parce que la scène est du code et pas une image figée.</p>
+          <ul class="chips">
+            <li>« Plus stressant vers la fin »</li>
+            <li>« Raccourcis à 45 secondes »</li>
+            <li>« Propose trois autres voix pour l'homme »</li>
+            <li>« Change le dilemme »</li>
+            <li>« La même en anglais »</li>
+            <li>« 68 % ont choisi de sortir : fais la partie 2 »</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="marche">
+    <div class="wrap">
+      <div class="head">
+        <p class="eyebrow">Comment ça marche</p>
+        <h2>Trois gestes, une seule fois</h2>
+      </div>
+      <ol class="steps">
+        <li><h3>Importe le fichier</h3><p class="muted">Tu reçois <code>pov-studio.skill</code>. Dans Claude : Paramètres, Capacités, Skills, Importer.</p></li>
+        <li><h3>Écris « Installe POV Studio »</h3><p class="muted">Claude installe tout lui-même en quelques minutes, puis te montre la démo pour prouver que ça marche.</p></li>
+        <li><h3>Décris ta vidéo</h3><p class="muted">Une idée, un lieu, une époque. Ou demande-lui trois propositions et choisis.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="band" id="images">
+    <div class="wrap">
+      <div class="head">
+        <p class="eyebrow">Images tirées de la vidéo de démonstration</p>
+        <h2>Le spectateur est <em>dedans</em>, et c'est lui qui décide</h2>
+        <p class="lead">Vue à la première personne, interface de jeu, horloge, compteur, fin ouverte. Ce sont les ressorts qui font commenter.</p>
+      </div>
+      <div class="shots">
+        <figure><img src="assets/plan-ecran.jpg" alt="Écran d'ascenseur affichant Surcharge, 2 personnes, avec le sous-titre de l'annonce" loading="lazy"><figcaption><b>Un écran qui ment</b>L'ascenseur annonce deux personnes. Tu es seul.</figcaption></figure>
+        <figure><img src="assets/plan-reflet.jpg" alt="Dans un miroir, le reflet du héros et une grande silhouette noire derrière son épaule" loading="lazy"><figcaption><b>Un reflet de trop</b>Dans le miroir, quelqu'un se tient derrière toi.</figcaption></figure>
+        <figure><img src="assets/plan-couloir.jpg" alt="Couloir rouge, un homme au fond, sous-titre : Et ne te retourne pas" loading="lazy"><figcaption><b>Une consigne</b>« Et ne te retourne pas. »</figcaption></figure>
+        <figure><img src="assets/plan-choix.jpg" alt="Écran final : Tu descends ? avec deux boutons, Je descends et Je reste" loading="lazy"><figcaption><b>Un choix</b>La majorité des commentaires écrit la partie 2.</figcaption></figure>
+      </div>
+    </div>
+  </section>
+
+  <section id="contenu">
+    <div class="wrap">
+      <div class="head">
+        <p class="eyebrow">Ce que tu reçois</p>
+        <h2>Le moteur, la méthode et les exemples</h2>
+      </div>
+      <ul class="kit">
+        <li><span class="n">1<small>moteur 3D</small></span><p><b>Décors, personnages, caméra.</b> Pièces, portes, mobilier, rues, personnages articulés qui parlent, vue à la première personne avec les mains et le téléphone.</p></li>
+        <li><span class="n">1<small>interface de jeu</small></span><p><b>Tout ce qui s'affiche par-dessus.</b> Horloge, jauge, compte à rebours, sous-titres avec mot surligné, notifications, écran de choix final.</p></li>
+        <li><span class="n">36<small>bruitages</small></span><p><b>Fabriqués par le moteur, libres de droits.</b> Cœur, pas, portes, alarme, montée de tension, et un mixage automatique au niveau des plateformes.</p></li>
+        <li><span class="n">16<small>ressorts de mystère</small></span><p><b>Un catalogue pour ne pas copier les autres.</b> Le compte faux, le reflet, la boucle, le témoin tranquille… avec un exemple pour chacun.</p></li>
+        <li><span class="n">3<small>styles d'image</small></span><p><b>Cartoon, nuit bleue, pixel.</b> Pour la fiction interactive comme pour l'histoire vraie, avec la structure seconde par seconde et une banque d'accroches.</p></li>
+        <li><span class="n">4<small>exemples complets</small></span><p><b>À copier et transformer.</b> Une démo, « L'étage 13 », « Louis XVI » et « Le Sixième Sceau », avec leurs voix.</p></li>
+        <li><span class="n">3<small>façons d'avoir des voix</small></span><p><b>Les voix gratuites de ton Mac</b>, ElevenLabs avec indications de jeu, ou tes propres enregistrements.</p></li>
+        <li><span class="n">1<small>mode d'emploi</small></span><p><b>Écrit pour quelqu'un qui ne code pas.</b> Installation, voix, premières demandes, suites, dépannage.</p></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="wrap">
+      <div class="head">
+        <p class="eyebrow">Pourquoi pas un générateur vidéo</p>
+        <h2>Une scène en code se <em>corrige</em>. Une vidéo générée se relance.</h2>
+      </div>
+      <div class="vs">
+        <table>
+          <thead><tr><th scope="col"></th><th scope="col">Générateur vidéo IA</th><th scope="col">POV Studio</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Changer un détail</th><td>On regénère le plan en espérant mieux</td><td>On modifie une ligne, on relance</td></tr>
+            <tr><th scope="row">Personnages et décor</th><td>Changent d'un plan à l'autre</td><td>Identiques du début à la fin, et dans la partie 2</td></tr>
+            <tr><th scope="row">Texte à l'écran</th><td>Souvent déformé</td><td>Net, c'est une vraie couche d'interface</td></tr>
+            <tr><th scope="row">Coût d'une version de plus</th><td>Des crédits à chaque essai</td><td>Rien, le rendu tourne sur ton ordinateur</td></tr>
+            <tr><th scope="row">Style d'image</th><td>Réaliste possible</td><td>Cartoon 3D simple, formes géométriques</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="prix">
+    <div class="wrap buy">
+      <div>
+        <div class="head">
+          <p class="eyebrow">Avant d'acheter</p>
+          <h2>Ce qu'il te faut</h2>
+        </div>
+        <ul class="req">
+          <li><b>Un ordinateur.</b> Testé sur Mac. Prévu pour Windows et Linux, pas encore testé dessus.</li>
+          <li><b>L'appli Claude sur ordinateur</b>, avec un abonnement qui donne l'onglet Code. Le site claude.ai seul ne suffit pas : le studio tourne chez toi.</li>
+          <li><b>Node.js et ffmpeg</b>, gratuits. Claude te dit comment les installer s'ils manquent.</li>
+          <li><b>Rien d'autre pour les voix sur Mac</b> : elles sont incluses. Un compte ElevenLabs est facultatif, pour des voix plus vivantes.</li>
+        </ul>
+      </div>
+      <aside class="price" aria-label="Prix">
+        <p class="eyebrow">Prix de lancement</p>
+        <p class="amount">6,99<span>€</span></p>
+        <p class="muted">Paiement unique. Tu télécharges le fichier, il est à toi.</p>
+        <ul>
+          <li>Le skill complet, son moteur et ses 36 bruitages</li>
+          <li>La méthode et le catalogue de ressorts</li>
+          <li>Quatre exemples avec leurs voix</li>
+          <li>Le mode d'emploi, dès la page de téléchargement</li>
+          <li>Tes vidéos t'appartiennent, usage commercial compris</li>
+        </ul>
+        <a class="btn primary" id="acheter" href="#prix" aria-disabled="true">Paiement bientôt ouvert</a>
+        <p class="fine">Une licence par personne. POV Studio ne se revend pas et ne se partage pas.</p>
+      </aside>
+    </div>
+  </section>
+
+  <section class="band" id="questions">
+    <div class="wrap">
+      <div class="head">
+        <p class="eyebrow">Questions</p>
+        <h2>Les questions à se poser avant d'acheter</h2>
+      </div>
+      <div class="faq">
+        <details><summary>Comment je le reçois ?</summary><p>Juste après le paiement, tu arrives sur la page de téléchargement. Elle te donne le fichier et les trois étapes pour l'installer. Garde l'adresse de cette page : c'est ton accès.</p></details>
+        <details><summary>Ça marche avec ChatGPT ou Gemini ?</summary><p>Non. POV Studio est un skill pour Claude : il lui faut l'appli Claude sur ordinateur, avec l'onglet Code, parce que le studio tourne sur ta machine.</p></details>
+        <details><summary>Je ne sais pas coder. C'est pour moi ?</summary><p>Oui si tu es à l'aise pour installer une application et discuter avec Claude. Tu décris, il fait. Le mode d'emploi couvre l'installation et les pannes les plus courantes.</p></details>
+        <details><summary>À quoi ressemblent les vidéos ?</summary><p>À la démonstration en haut de page : cartoon 3D simple, personnages en formes géométriques, interface de jeu. Ce n'est pas du photoréalisme, et c'est voulu : le rendu est rapide et tout se corrige.</p></details>
+        <details><summary>Combien coûte une vidéo ensuite ?</summary><p>Le rendu est gratuit et les voix de ton Mac aussi. Si tu choisis ElevenLabs, chaque vidéo consomme quelques centaines de caractères de ton quota. Ton abonnement Claude reste à ta charge.</p></details>
+        <details><summary>Je peux faire des vidéos historiques ?</summary><p>Oui : « Et si tu étais… ». Claude vérifie les dates et les faits avant d'écrire, mais relis-les toujours avant de publier.</p></details>
+        <details><summary>Est-ce que je peux vendre les vidéos ou en faire pour des clients ?</summary><p>Oui. Tout ce que tu produis est à toi. Seul POV Studio lui-même ne se redistribue pas.</p></details>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 POV Studio</span>
+    <span>Un skill pour Claude. Non affilié à Anthropic ni à ElevenLabs.</span>
+  </div>
+</footer>
+
+<script src="config.js"></script>
+<script>
+// Le lien de paiement se règle dans config.js (une seule ligne à remplir).
+const acheter = document.getElementById('acheter'), LIEN = (window.POV && window.POV.LIEN_PAIEMENT) || '';
+if (LIEN) { acheter.href = LIEN; acheter.removeAttribute('aria-disabled'); acheter.textContent = 'Acheter POV Studio · 6,99 €'; }
+else acheter.addEventListener('click', (e) => e.preventDefault());
+
+const video = document.getElementById('demo'), son = document.getElementById('son');
+son.addEventListener('click', () => {
+  video.muted = !video.muted;
+  if (!video.muted) { video.currentTime = 0; video.play().catch(() => {}); }
+  son.setAttribute('aria-pressed', String(!video.muted));
+  son.textContent = video.muted ? 'Activer le son' : 'Couper le son';
+});
+if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { video.removeAttribute('autoplay'); video.pause(); video.controls = true; }
+</script>
+
+</body>
+</html>
